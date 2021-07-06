@@ -1,0 +1,6 @@
+# Build files
+build/
+bin/
+lib/
+.ccls-cache/
+compile_commands.json
