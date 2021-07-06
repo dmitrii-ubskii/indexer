@@ -9,10 +9,10 @@ TEST_CASE("Basic indexing test")
 	indexer.addPath("include/indexer/indexer.h");
 	indexer.addPath("README.adoc");
 
-	REQUIRE(indexer.search("Indexer").contains("README.adoc"));
-	REQUIRE(indexer.search("Indexer").contains("include/indexer/indexer.h"));
-	REQUIRE(not indexer.search("Tokenizer").contains("README.adoc"));
-	REQUIRE(indexer.search("Tokenizer").contains("include/indexer/indexer.h"));
+	REQUIRE(indexer.search("Indexer").contains(std::filesystem::canonical("README.adoc")));
+	REQUIRE(indexer.search("Indexer").contains(std::filesystem::canonical("include/indexer/indexer.h")));
+	REQUIRE(not indexer.search("Tokenizer").contains(std::filesystem::canonical("README.adoc")));
+	REQUIRE(indexer.search("Tokenizer").contains(std::filesystem::canonical("include/indexer/indexer.h")));
 }
 
 TEST_CASE("Path normalization test")

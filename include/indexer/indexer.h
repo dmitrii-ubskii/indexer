@@ -82,7 +82,11 @@ public:
 
 	void addPath(std::filesystem::path path, Recursive = Recursive::Yes)
 	{
-		path = path.lexically_normal();
+		if (not std::filesystem::exists(path))
+			return;
+
+		path = std::filesystem::canonical(path);
+		
 		if (forwardIndex.contains(path))  // No-op
 		{
 			return;
