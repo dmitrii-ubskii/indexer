@@ -13,7 +13,7 @@ struct PathCanonicalHasher
 {
 	std::size_t operator()(std::filesystem::path const& path) const
 	{
-		return std::filesystem::hash_value(path.lexically_normal());
+		return std::filesystem::hash_value(path);
 	}
 };
 
@@ -82,6 +82,7 @@ public:
 
 	void addPath(std::filesystem::path path, Recursive = Recursive::Yes)
 	{
+		path = path.lexically_normal();
 		if (forwardIndex.contains(path))  // No-op
 		{
 			return;

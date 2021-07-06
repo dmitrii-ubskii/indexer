@@ -14,3 +14,12 @@ TEST_CASE("Basic indexing test")
 	REQUIRE(not indexer.search("Tokenizer").contains("README.adoc"));
 	REQUIRE(indexer.search("Tokenizer").contains("include/indexer/indexer.h"));
 }
+
+TEST_CASE("Path normalization test")
+{
+	Indexer::Indexer indexer;
+	indexer.addPath("README.adoc");
+	indexer.addPath("./README.adoc");
+	indexer.addPath("src/../README.adoc");
+	REQUIRE(indexer.search("Indexer").size() == 1);
+}
