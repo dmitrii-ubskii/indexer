@@ -8,12 +8,13 @@
 class Repl
 {
 public:
-	void add_command(std::string command, std::function<void(std::string_view)> callback)
+	void add_command(std::string const& command, std::function<void(std::string_view)> callback, std::string const& help)
 	{
 		commands.insert({command, callback});
+		helps.insert({command, help});
 	}
 
-	void add_alias(std::string alias, std::string command)
+	void add_alias(std::string const& alias, std::string const& command)
 	{
 		aliases.insert({alias, command});
 	}
@@ -26,11 +27,30 @@ public:
 			return command;
 		}();
 		if (commands.contains(cmd))
+		{
 			commands.at(cmd)(args);
+		}
+		else
+		{
+			std::cerr << "Unknown syntax: `" << command << "`\n";
+		}
+	}
+
+	void showHelp(std::string const& command)
+	{
+		if (helps.contains(command))
+		{
+			std::cerr << helps.at(command) << "\n";
+		}
+		else
+		{
+			std::cerr << "No help on `" << command << "`\n";
+		}
 	}
 
 private:
 	std::unordered_map<std::string, std::function<void(std::string_view)>> commands;
+	std::unordered_map<std::string, std::string> helps;
 	std::unordered_map<std::string, std::string> aliases;
 };
 
@@ -59,24 +79,38 @@ int main()
 	bool doQuit = false;
 
 	Repl repl;
-	repl.add_command("help", [](auto rest){ std::cout << "Fetching help on `" << rest << "`\n"; });
+	repl.add_command(
+		"help", [&](auto rest){ repl.showHelp(std::string{rest}); },
+		"help: display help for a given command"
+	);
 	repl.add_alias("h", "help");
 	repl.add_alias("?", "help");
 
-	repl.add_command("quit", [&](auto){ doQuit = true; });
+	repl.add_command(
+		"quit", [&](auto){ doQuit = true; },
+		"quit: quit the REPL"
+	);
 	repl.add_alias("q", "quit");
 
-	repl.add_command("add", [&](auto path){
-		auto start = std::chrono::steady_clock::now();
-		indexer.addPath(path);
-		auto duration = std::chrono::steady_clock::now() - start;
-		std::cerr << "Took ~" << formatDuration(duration) << " to index\n";
-	});
+	repl.add_command(
+		"add",
+		[&](auto path) {
+			auto start = std::chrono::steady_clock::now();
+			indexer.addPath(path);
+			auto duration = std::chrono::steady_clock::now() - start;
+			std::cerr << "Took ~" << formatDuration(duration) << " to index\n";
+		},
+		"add: add a path to the index"
+	);
 
-	repl.add_command("search", [&](auto token){
-		for (auto&& f: indexer.search(std::string{token}))
-			std::cout << f << "\n";
-	});
+	repl.add_command(
+		"search",
+		[&](auto token) {
+			for (auto&& f: indexer.search(std::string{token}))
+				std::cout << f << "\n";
+		},
+		"search: list files containing the search term"
+	);
 
 	std::string cmd;
 	std::cout << "Type \"help\" or \"?\" for help, \"quit\" to quit\n";
