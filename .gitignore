@@ -7,3 +7,7 @@ compile_commands.json
 
 # Editor config
 .exrc
+
+# Test files
+catch_amalgamated.cpp
+gecko-dev/
