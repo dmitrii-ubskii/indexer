@@ -1,5 +1,6 @@
-#include <iostream>
+#include <chrono>
 #include <functional>
+#include <iostream>
 #include <string>
 
 #include "indexer/indexer.h"
@@ -33,6 +34,24 @@ private:
 	std::unordered_map<std::string, std::string> aliases;
 };
 
+std::string formatDuration(std::chrono::steady_clock::duration duration)
+{
+	auto units = duration.count();  // ns
+
+	constexpr char names[7][4] = {"ns", "μs", "ms", "s", "min", "hrs"};
+	constexpr int sizes[] = {1000, 1000, 1000, 60, 60};
+
+	std::size_t i = 0;
+	for (; i < std::size(sizes); i++)
+	{
+		if (units < sizes[i])
+			break;
+
+		units = (units + sizes[i] / 2) / sizes[i];
+	}
+	return std::to_string(units) + " " + names[i];
+}
+
 int main()
 {
 	Indexer::Indexer indexer;  // Indexer indexer? Indexer!
@@ -47,7 +66,13 @@ int main()
 	repl.add_command("quit", [&](auto){ doQuit = true; });
 	repl.add_alias("q", "quit");
 
-	repl.add_command("add", [&](auto path){ indexer.addPath(path); });
+	repl.add_command("add", [&](auto path){
+		auto start = std::chrono::steady_clock::now();
+		indexer.addPath(path);
+		auto duration = std::chrono::steady_clock::now() - start;
+		std::cerr << "Took ~" << formatDuration(duration) << " to index\n";
+	});
+
 	repl.add_command("search", [&](auto token){
 		for (auto&& f: indexer.search(std::string{token}))
 			std::cout << f << "\n";
