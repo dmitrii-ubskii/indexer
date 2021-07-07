@@ -40,6 +40,7 @@ elseif(CMAKE_BUILD_TYPE STREQUAL "Debug")
     add_link_options(-fsanitize=undefined)
 elseif(CMAKE_BUILD_TYPE STREQUAL "Profile")
     add_compile_options(-g -pg -Og)
+    add_link_options(-g -pg -Og)
 endif()
 
 add_subdirectory(src)
