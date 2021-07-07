@@ -6,6 +6,7 @@
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
+#include <vector>
 
 namespace Indexer
 {
@@ -80,19 +81,63 @@ public:
 	Indexer(Tokenizer const& tokenizer_): tokenizer{tokenizer_} {}
 	Indexer(Tokenizer&& tokenizer_): tokenizer{std::move(tokenizer_)} {}
 
-	void addPath(std::filesystem::path path, Recursive = Recursive::Yes)
+	void addPath(std::filesystem::path const& path, Recursive recursively = Recursive::Yes)
 	{
 		if (not std::filesystem::exists(path))
 			return;
 
-		path = std::filesystem::canonical(path);
+		auto canonicalPath = std::filesystem::canonical(path);
 		
+		if (std::filesystem::is_directory(canonicalPath))
+		{
+			addDirectory(canonicalPath, recursively);
+		}
+		else
+		{
+			addFile(canonicalPath);
+		}
+	}
+
+	[[nodiscard]] PathSet search(std::string const& needle) const
+	{
+		if (not invertedIndex.contains(needle))
+			return PathSet{};
+
+		PathSet haystacks;
+		for (auto&& i: invertedIndex.at(needle))
+			haystacks.insert(indexedFiles[i]);
+		return haystacks;
+	}
+
+private:
+	void addDirectory(std::filesystem::path const& path, Recursive recursively)
+	{
+		for (auto&& p: std::filesystem::directory_iterator(path))
+		{
+			auto entry = p.path();
+			if (std::filesystem::is_directory(entry) && recursively == Recursive::Yes)
+			{
+				addPath(entry, recursively);
+			}
+			else
+			{
+				addFile(entry);
+			}
+		}
+	}
+
+	void addFile(std::filesystem::path const& path)
+	{
 		if (forwardIndex.contains(path))  // No-op
 		{
 			return;
 		}
 
-		forwardIndex.insert({path, {}});
+		auto fileId = indexedFiles.size();
+		indexedFiles.push_back(path);
+
+		auto [insertIterator, didInsert] = forwardIndex.insert({path, {}});
+		auto& fileTokens = insertIterator->second;
 
 		std::ifstream f{path};
 		std::string buf;
@@ -102,37 +147,22 @@ public:
 			while (not tokenizer.done())
 			{
 				auto token = std::string{tokenizer.next()};
-
-				forwardIndex.at(path).emplace(token);
+				fileTokens.insert(token);
 
 				if (not invertedIndex.contains(token))
 				{
 					invertedIndex.insert({token, {}});
 				}
-				invertedIndex.at(token).insert(path);
+				invertedIndex.at(token).insert(fileId);
 			}
 		}
 	}
 
-	[[nodiscard]] PathSet const& search(std::string const& needle) const
-	{
-		if (not invertedIndex.contains(needle))
-			return empty;
-
-		return invertedIndex.at(needle);
-	}
-
-private:
 	Tokenizer tokenizer;
-
+	std::vector<std::filesystem::path> indexedFiles;
 	std::unordered_map<std::filesystem::path, std::unordered_set<std::string>, PathCanonicalHasher> forwardIndex;  // for updating
-	std::unordered_map<std::string, PathSet> invertedIndex;  // for querying
-
-	static PathSet const empty;
+	std::unordered_map<std::string, std::unordered_set<std::size_t>> invertedIndex;  // for querying
 };
-
-template <typename T>
-PathSet const Indexer<T>::empty;
 }
 
 #endif // INDEXER_INDEXER_H_
