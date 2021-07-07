@@ -101,15 +101,15 @@ public:
 			tokenizer.setSource(buf);
 			while (not tokenizer.done())
 			{
-				auto token = tokenizer.next();
+				auto token = std::string{tokenizer.next()};
 
 				forwardIndex.at(path).emplace(token);
 
-				if (not invertedIndex.contains(std::string{token}))
+				if (not invertedIndex.contains(token))
 				{
-					invertedIndex.insert({std::string{token}, {}});
+					invertedIndex.insert({token, {}});
 				}
-				invertedIndex.at(std::string{token}).insert(path);
+				invertedIndex.at(token).insert(path);
 			}
 		}
 	}
