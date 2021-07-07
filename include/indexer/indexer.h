@@ -28,14 +28,14 @@ public:
 		findNext();
 	}
 
-	std::string_view next()
+	[[nodiscard]] std::string_view next()
 	{
 		auto t = nextToken;
 		findNext();
 		return t;
 	}
 
-	bool done() { return isDone; }
+	[[nodiscard]] bool done() const { return isDone; }
 
 private:
 	void findNext()
@@ -114,7 +114,7 @@ public:
 		}
 	}
 
-	PathSet const& search(std::string const& needle)
+	[[nodiscard]] PathSet const& search(std::string const& needle) const
 	{
 		if (not invertedIndex.contains(needle))
 			return empty;
