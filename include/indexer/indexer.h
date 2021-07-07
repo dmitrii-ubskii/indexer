@@ -8,6 +8,8 @@
 #include <unordered_set>
 #include <vector>
 
+#include "indexer/inotify_filesystem_watcher.h"
+
 namespace Indexer
 {
 struct PathCanonicalHasher
@@ -112,12 +114,13 @@ public:
 private:
 	void addDirectory(std::filesystem::path const& path, Recursive recursively)
 	{
+		watcher.addDirectory(path);
 		for (auto&& p: std::filesystem::directory_iterator(path))
 		{
 			auto entry = p.path();
 			if (std::filesystem::is_directory(entry) && recursively == Recursive::Yes)
 			{
-				addPath(entry, recursively);
+				addDirectory(entry, recursively);
 			}
 			else
 			{
@@ -133,6 +136,7 @@ private:
 			return;
 		}
 
+		watcher.addFile(path);
 		auto fileId = indexedFiles.size();
 		indexedFiles.push_back(path);
 
@@ -159,6 +163,8 @@ private:
 	}
 
 	Tokenizer tokenizer;
+	FilesystemWatcher watcher;
+
 	std::vector<std::filesystem::path> indexedFiles;
 	std::unordered_map<std::filesystem::path, std::unordered_set<std::string>, PathCanonicalHasher> forwardIndex;  // for updating
 	std::unordered_map<std::string, std::unordered_set<std::size_t>> invertedIndex;  // for querying
