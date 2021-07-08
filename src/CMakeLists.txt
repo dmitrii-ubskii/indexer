@@ -5,3 +5,4 @@ target_include_directories(repl
         .
         ../include
 )
+target_link_libraries(repl pthread)

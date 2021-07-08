@@ -13,4 +13,4 @@ target_include_directories(tests
         .
         ../include
 )
-target_link_libraries(tests PRIVATE Catch2::Catch2WithMain gcov)
+target_link_libraries(tests PRIVATE Catch2::Catch2WithMain gcov pthread)

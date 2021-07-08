@@ -3,7 +3,9 @@
 
 #include <filesystem>
 #include <fstream>
+#include <mutex>
 #include <string>
+#include <thread>
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
@@ -76,6 +78,12 @@ public:
 	Indexer(Tokenizer const& tokenizer_): tokenizer{tokenizer_} {}
 	Indexer(Tokenizer&& tokenizer_): tokenizer{std::move(tokenizer_)} {}
 
+	~Indexer()
+	{
+		doStop = true;
+		filesystemWatcherThread.join();
+	}
+
 	void addPath(std::filesystem::path const& path, Recursive recursively = Recursive::Yes)
 	{
 		if (not std::filesystem::exists(path))
@@ -129,6 +137,7 @@ private:
 			return;
 		}
 
+		std::unique_lock pin{indexMutex};
 		watcher.addFile(path);
 		auto fileId = indexedFiles.size();
 		indexedFiles.push_back(path);
@@ -155,8 +164,21 @@ private:
 		}
 	}
 
+	void watchFilesystem()
+	{
+		while (not doStop)
+		{
+			watcher.query();
+		}
+	}
+
 	Tokenizer tokenizer;
+
+	bool doStop = false;
 	FilesystemWatcher watcher;
+	std::thread filesystemWatcherThread{&Indexer::watchFilesystem, this};
+
+	std::mutex indexMutex;
 
 	std::vector<std::filesystem::path> indexedFiles;
 	std::unordered_map<std::filesystem::path, std::unordered_set<std::string>, PathCanonicalHasher> forwardIndex;  // for updating
