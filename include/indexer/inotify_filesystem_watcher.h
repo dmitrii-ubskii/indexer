@@ -64,13 +64,30 @@ public:
 		if (buffSize == 0)
 			return;
 
-		auto buffer = new char[buffSize];
-		read(inotifyFd, buffer, buffSize);
-		auto* event = reinterpret_cast<inotify_event const*>(buffer);
-		auto* end = reinterpret_cast<inotify_event const*>(buffer + buffSize);
+		auto buffer = std::vector<char>(buffSize);
 
-		for ( ; event < end; event++)
+		auto bytesReadOrError = read(inotifyFd, buffer.data(), buffSize);
+		if (bytesReadOrError < 0)  // error
 		{
+			switch (bytesReadOrError)
+			{
+				case EIO:
+					throw std::runtime_error{
+						"inotify read: EIO: I/O error."
+					};
+				default:
+					throw std::runtime_error{
+						"inotify read: Unexpected error code " + std::to_string(bytesReadOrError)
+					};
+			}
+		}
+
+		auto* end = buffer.data() + bytesReadOrError;
+
+		for (auto p = buffer.data(); p < end; )
+		{
+			auto* event = reinterpret_cast<inotify_event const*>(p);
+			p += sizeof(inotify_event) + event->len;
 			/* Print event type */
 	
 			if (event->mask & IN_MODIFY)
@@ -95,7 +112,6 @@ public:
 				printf(" [file]\n");
 		}
 
-		delete[] buffer;
 	}
 
 private:
