@@ -26,7 +26,7 @@ public:
 	void setSource(std::string_view newSource)
 	{
 		source = newSource;
-		cursor = source.begin();
+		cursor = std::find_if(source.begin(), source.end(), [](auto c){ return std::isalnum(c); });
 		isDone = false;
 		findNext();
 	}
