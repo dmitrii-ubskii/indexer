@@ -117,6 +117,9 @@ int main()
 	do {
 		std::cout << ">>> ";
 		std::getline(std::cin, cmd);
+		if (cmd == "")
+			continue;
+
 		auto commandEnd = cmd.find_first_of(' ');
 		if (commandEnd == std::string::npos)
 		{
