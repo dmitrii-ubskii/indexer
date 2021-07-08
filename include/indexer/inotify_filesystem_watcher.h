@@ -8,6 +8,8 @@
 #include <sys/ioctl.h>
 #include <unistd.h>
 
+#include "indexer/path_utils.h"
+
 namespace Indexer
 {
 class FilesystemWatcher
@@ -43,12 +45,16 @@ public:
 
 	void addFile(std::filesystem::path const& path)
 	{
-		inotify_add_watch(inotifyFd, path.c_str(), IN_MODIFY | IN_DELETE_SELF | IN_MOVE_SELF);
+		auto wd = inotify_add_watch(inotifyFd, path.c_str(), IN_MODIFY | IN_DELETE_SELF | IN_MOVE_SELF);
+		idToPath.insert({wd, path});
+		pathToId.insert({path, wd});
 	}
 
 	void addDirectory(std::filesystem::path const& path)
 	{
-		inotify_add_watch(inotifyFd, path.c_str(), IN_CREATE | IN_DELETE | IN_DELETE_SELF | IN_MOVE_SELF | IN_MOVE);
+		auto wd = inotify_add_watch(inotifyFd, path.c_str(), IN_CREATE | IN_DELETE | IN_DELETE_SELF | IN_MOVE_SELF | IN_MOVE);
+		idToPath.insert({wd, path});
+		pathToId.insert({path, wd});
 	}
 
 	void query()
@@ -94,6 +100,9 @@ public:
 
 private:
 	int inotifyFd;
+
+	std::unordered_map<int, std::filesystem::path> idToPath;
+	std::unordered_map<std::filesystem::path, int, PathCanonicalHasher> pathToId;
 };
 }
 

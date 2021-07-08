@@ -9,17 +9,10 @@
 #include <vector>
 
 #include "indexer/inotify_filesystem_watcher.h"
+#include "indexer/path_utils.h"
 
 namespace Indexer
 {
-struct PathCanonicalHasher
-{
-	std::size_t operator()(std::filesystem::path const& path) const
-	{
-		return std::filesystem::hash_value(path);
-	}
-};
-
 class WordTokenizer
 {
 public:
