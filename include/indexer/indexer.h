@@ -105,7 +105,7 @@ public:
 		filesystemWatcherThread.join();
 	}
 
-	void addPath(std::filesystem::path const&, Recursive = Recursive::Yes);
+	void addPath(std::filesystem::path const&, Recursive = Recursive::No);
 
 	[[nodiscard]] PathSet search(std::string const& needle) const;
 

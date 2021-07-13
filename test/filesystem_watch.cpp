@@ -49,7 +49,7 @@ TEST_CASE("Watching filesystem")
 
 	SECTION("File creation and modification is caught")
 	{
-		indexer.addPath(testDir);
+		indexer.addPath(testDir, Indexer::Recursive::Yes);
 		auto testFile = testDir / "section_create";
 
 		write(testFile, "CREATE\n");

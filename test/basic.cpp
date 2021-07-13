@@ -19,8 +19,16 @@ TEST_CASE("Recursive indexing test")
 {
 	Indexer::Indexer indexer;
 
-	indexer.addPath("include");
-	REQUIRE(indexer.search("Indexer").contains(std::filesystem::canonical("include/indexer/indexer.h")));
+	SECTION("Non-recursive directory")
+	{
+		indexer.addPath("include", Indexer::Recursive::No);
+		REQUIRE_FALSE(indexer.search("Indexer").contains(std::filesystem::canonical("include/indexer/indexer.h")));
+	}
+	SECTION("Recursive directory")
+	{
+		indexer.addPath("include", Indexer::Recursive::Yes);
+		REQUIRE(indexer.search("Indexer").contains(std::filesystem::canonical("include/indexer/indexer.h")));
+	}
 }
 
 TEST_CASE("Path normalization test")
