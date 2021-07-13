@@ -130,22 +130,9 @@ private:
 		}
 	}
 
-	void addFile(std::filesystem::path const& path)
+	std::unordered_set<std::string> getFileTokens(std::filesystem::path const& path)
 	{
-		if (fileToId.contains(path))  // No-op
-		{
-			return;
-		}
-
-		std::unique_lock pin{indexMutex};
-		watcher.addFile(path);
-
-		fileId = nextId();
-		fileToId.insert({path, fileId});
-		idToFile.insert({fileId, path});
-		auto [insertIterator, didInsert] = forwardIndex.insert({fileId, getFileTokens(path)});
-		auto& fileTokens = insertIterator->second;
-
+		std::unordered_set<std::string> fileTokens;
 		std::ifstream f{path};
 		std::string buf;
 		for (std::getline(f, buf); not f.eof(); std::getline(f, buf))
@@ -155,13 +142,37 @@ private:
 			{
 				auto token = std::string{tokenizer.next()};
 				fileTokens.insert(token);
-
-				if (not invertedIndex.contains(token))
-				{
-					invertedIndex.insert({token, {}});
-				}
-				invertedIndex.at(token).insert(fileId);
 			}
+		}
+		return fileTokens;
+	}
+
+	void addFile(std::filesystem::path const& path)
+	{
+		std::unique_lock pin{indexMutex};
+		watcher.addFile(path);
+
+		int fileId;
+		if (fileToId.contains(path))
+		{
+			fileId = fileToId.at(path);
+		}
+		else
+		{
+			fileId = nextId();
+			fileToId.insert({path, fileId});
+			idToFile.insert({fileId, path});
+		}
+
+		auto [insertIterator, didInsert] = forwardIndex.insert({fileId, getFileTokens(path)});
+		auto& fileTokens = insertIterator->second;
+		for (auto const& token: fileTokens)
+		{
+			if (not invertedIndex.contains(token))
+			{
+				invertedIndex.insert({token, {}});
+			}
+			invertedIndex.at(token).insert(fileId);
 		}
 	}
 
