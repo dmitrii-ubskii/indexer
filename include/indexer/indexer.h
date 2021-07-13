@@ -108,7 +108,7 @@ public:
 
 		PathSet haystacks;
 		for (auto&& i: invertedIndex.at(needle))
-			haystacks.insert(indexedFiles[i]);
+			haystacks.insert(idToFile.at(i));
 		return haystacks;
 	}
 
@@ -132,17 +132,18 @@ private:
 
 	void addFile(std::filesystem::path const& path)
 	{
-		if (forwardIndex.contains(path))  // No-op
+		if (fileToId.contains(path))  // No-op
 		{
 			return;
 		}
 
 		std::unique_lock pin{indexMutex};
 		watcher.addFile(path);
-		auto fileId = indexedFiles.size();
-		indexedFiles.push_back(path);
 
-		auto [insertIterator, didInsert] = forwardIndex.insert({path, {}});
+		fileId = nextId();
+		fileToId.insert({path, fileId});
+		idToFile.insert({fileId, path});
+		auto [insertIterator, didInsert] = forwardIndex.insert({fileId, getFileTokens(path)});
 		auto& fileTokens = insertIterator->second;
 
 		std::ifstream f{path};
@@ -172,6 +173,12 @@ private:
 		}
 	}
 
+	int nextId()
+	{
+		static int next = 0;
+		return next++;
+	}
+
 	Tokenizer tokenizer;
 
 	bool doStop{false};
@@ -180,9 +187,11 @@ private:
 
 	std::mutex indexMutex;
 
-	std::vector<std::filesystem::path> indexedFiles;
-	std::unordered_map<std::filesystem::path, std::unordered_set<std::string>, PathHasher> forwardIndex;  // for updating
-	std::unordered_map<std::string, std::unordered_set<std::size_t>> invertedIndex;  // for querying
+	std::unordered_map<int, std::filesystem::path> idToFile;
+	std::unordered_map<std::filesystem::path, int, PathHasher> fileToId;
+
+	std::unordered_map<int, std::unordered_set<std::string>> forwardIndex;  // for updating
+	std::unordered_map<std::string, std::unordered_set<int>> invertedIndex;  // for querying
 };
 }
 
