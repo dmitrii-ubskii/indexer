@@ -1,4 +1,7 @@
-add_library(indexer SHARED inotify_filesystem_watcher.cpp)
+add_library(indexer SHARED
+    indexer.cpp
+    inotify_filesystem_watcher.cpp
+)
 target_compile_features(indexer PRIVATE cxx_std_20)
 target_include_directories(indexer
     PRIVATE
