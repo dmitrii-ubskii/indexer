@@ -32,15 +32,17 @@ TEST_CASE("Watching filesystem")
 	SECTION("Basic modifications are caught")
 	{
 		auto testFile = testDir / "section_modify";
-		touch(testFile);
+		write(testFile, "UNMODIFIED\n");
 
 		indexer.addPath(testFile);
+		REQUIRE(indexer.search("UNMODIFIED").contains(testFile));
 		REQUIRE_FALSE(indexer.search("MODIFY").contains(testFile));
 
 		write(testFile, "MODIFY\n");
 		wait();
 
 		REQUIRE(indexer.search("MODIFY").contains(testFile));
+		REQUIRE_FALSE(indexer.search("UNMODIFIED").contains(testFile));
 
 		std::filesystem::remove(testFile);
 	}
