@@ -13,6 +13,16 @@ struct PathHasher
 		return std::filesystem::hash_value(path);
 	}
 };
+
+inline std::filesystem::path head(std::filesystem::path const& path)
+{
+	return *path.begin();
+}
+
+inline std::filesystem::path tail(std::filesystem::path const& path)
+{
+	return path.lexically_relative(head(path));
+}
 }
 
 #endif // INDEXER_PATH_UTILS_H_

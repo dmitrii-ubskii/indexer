@@ -90,3 +90,107 @@ TEST_CASE("Watching filesystem")
 	std::filesystem::remove_all(testDir);
 }
 
+TEST_CASE("Catching deleted files recreation")
+{
+	Indexer::Indexer indexer;
+	std::filesystem::path testDir = std::filesystem::weakly_canonical("./__test_dir");
+	std::filesystem::create_directory(testDir);
+
+	SECTION("Deleted and recreated files are caught")
+	{
+		auto testFile = testDir / "section_recreate";
+		touch(testFile);
+
+		indexer.addPath(testFile);
+
+		write(testFile, "DELETE\n");
+		wait();
+
+		REQUIRE(indexer.search("DELETE").contains(testFile));
+
+		std::filesystem::remove(testFile);
+		wait();
+
+		REQUIRE_FALSE(indexer.search("DELETE").contains(testFile));
+
+		write(testFile, "RECREATE\n");
+		wait();
+
+		REQUIRE(indexer.search("RECREATE").contains(testFile));
+		REQUIRE_FALSE(indexer.search("DELETE").contains(testFile));
+
+		std::filesystem::remove(testFile);
+	}
+
+	SECTION("Deleted and recreated files are caught deeper in the tree")
+	{
+		auto subdir = testDir / "section_recreate_recursive";
+		std::filesystem::create_directory(subdir);
+
+		auto testFile = subdir / "section_recreate_recursive_file";
+		write(testFile, "DELETE\n");
+		indexer.addPath(testFile);
+
+		REQUIRE(indexer.search("DELETE").contains(testFile));
+
+		std::filesystem::remove_all(subdir);
+		wait();
+
+		REQUIRE_FALSE(indexer.search("DELETE").contains(testFile));
+
+		std::filesystem::create_directory(subdir);
+		write(testFile, "RECREATE\n");
+		wait();
+
+		REQUIRE(indexer.search("RECREATE").contains(testFile));
+		REQUIRE_FALSE(indexer.search("DELETE").contains(testFile));
+
+		std::filesystem::remove_all(subdir);
+	}
+
+	SECTION("Deleted and recreated files are caught deeper in the tree -- step-by-step deletion")
+	{
+		auto subdir = testDir / "section_recreate_recursive";
+		std::filesystem::create_directory(subdir);
+
+		auto testFile = subdir / "section_recreate_recursive_file";
+		write(testFile, "DELETE\n");
+		indexer.addPath(testFile);
+
+		REQUIRE(indexer.search("DELETE").contains(testFile));
+
+		std::filesystem::remove(testFile);
+		wait();
+		REQUIRE_FALSE(indexer.search("DELETE").contains(testFile));
+
+		std::filesystem::remove(subdir);
+		wait();
+
+		std::filesystem::create_directory(subdir);
+		write(testFile, "RECREATE\n");
+		wait();
+
+		REQUIRE(indexer.search("RECREATE").contains(testFile));
+		REQUIRE_FALSE(indexer.search("DELETE").contains(testFile));
+
+		std::filesystem::remove_all(subdir);
+	}
+
+	SECTION("Adding file before it's created")
+	{
+		auto testFile = testDir / "section_create";
+
+		indexer.addPath("__nonexistent");
+		indexer.addPath(testFile);
+
+		write(testFile, "CREATE\n");
+		wait();
+
+		REQUIRE(indexer.search("CREATE").contains(testFile));
+
+		std::filesystem::remove(testFile);
+	}
+
+	std::filesystem::remove_all(testDir);
+}
+

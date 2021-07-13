@@ -86,12 +86,18 @@ public:
 
 	void addPath(std::filesystem::path const& path, Recursive recursively = Recursive::Yes)
 	{
-		if (not std::filesystem::exists(path))
-			return;
+		auto canonicalPath = std::filesystem::weakly_canonical(path);
+		if (not canonicalPath.has_root_path())
+		{
+			canonicalPath = std::filesystem::weakly_canonical(".") / path;
+		}
+		addedPaths.insert(canonicalPath);
 
-		auto canonicalPath = std::filesystem::canonical(path);
-		
-		if (std::filesystem::is_directory(canonicalPath))
+		if (not std::filesystem::exists(canonicalPath))
+		{
+			awaitCreation(canonicalPath);
+		}
+		else if (std::filesystem::is_directory(canonicalPath))
 		{
 			addDirectory(canonicalPath, recursively);
 		}
@@ -221,6 +227,27 @@ private:
 		fileTokens = std::move(newTokens);
 	}
 
+	void awaitCreation(std::filesystem::path const& path)
+	{
+		if (std::filesystem::exists(path))
+		{
+			addPath(path);
+			return;
+		}
+
+		auto existingParent = path.parent_path();
+		while (not std::filesystem::exists(existingParent))
+		{
+			existingParent = existingParent.parent_path();
+		}
+		if (not creationWatches.contains(existingParent))
+		{
+			watcher.addDirectory(existingParent);
+			creationWatches.insert({existingParent, {}});
+		}
+		creationWatches.at(existingParent).insert(path.lexically_relative(existingParent));
+	}
+
 	void watchFilesystem()
 	{
 		while (not doStop)
@@ -240,11 +267,44 @@ private:
 							{
 								addFile(event.path);
 							}
-							else if (indexedDirectories.at(parent) == Recursive::Yes)
+							else if (indexedDirectories.contains(parent) && indexedDirectories.at(parent) == Recursive::Yes)
 							{
 								addDirectory(event.path, Recursive::Yes);
 							}
-							// TODO recreation
+
+							if (creationWatches.contains(parent))
+							{
+								auto& watches = creationWatches.at(parent);
+								auto name = event.path.filename();
+
+								if (watches.contains(name))
+								{
+									addPath(event.path);
+									watches.erase(name);
+								}
+
+								for (auto it = watches.begin(); it != watches.end(); )
+								{
+									auto& path = *it;
+
+									if (path.has_parent_path() && head(path) == name)
+									{
+										auto fullPath = parent / path;
+										it = watches.erase(it);  // advances the iterator
+										awaitCreation(fullPath);
+									}
+									else  // advance normally
+									{
+										++it;
+									}
+								}
+
+								if (watches.empty())
+								{
+									watcher.removePath(parent);
+									creationWatches.erase(parent);
+								}
+							}
 						}
 						break;
 
@@ -253,7 +313,18 @@ private:
 						{
 							removeFile(event.path);
 						}
-						// TODO add recreation watch
+						if (addedPaths.contains(event.path))
+						{
+							awaitCreation(event.path);
+						}
+						if (creationWatches.contains(event.path))
+						{
+							for (auto& path: creationWatches.at(event.path))
+							{
+								awaitCreation(event.path / path);
+							}
+							creationWatches.erase(event.path);
+						}
 						break;
 				}
 			}
@@ -272,9 +343,13 @@ private:
 	FilesystemWatcher watcher;
 	std::thread filesystemWatcherThread{&Indexer::watchFilesystem, this};
 
+	// paths that were *explicitly* added by the user
+	PathSet addedPaths;
 	std::unordered_map<std::filesystem::path, Recursive, PathHasher> indexedDirectories;
 
 	std::mutex indexMutex;
+
+	std::unordered_map<std::filesystem::path, PathSet, PathHasher> creationWatches;
 
 	std::unordered_map<int, std::filesystem::path> idToFile;
 	std::unordered_map<std::filesystem::path, int, PathHasher> fileToId;

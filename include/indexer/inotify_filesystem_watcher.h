@@ -59,6 +59,17 @@ public:
 		registerWatchDescriptor(watchDescriptor, path);
 	}
 
+	void removePath(std::filesystem::path const& path)
+	{
+		if (pathToDescriptor.contains(path))
+		{
+			auto watchDescriptor = pathToDescriptor.at(path);
+			inotify_rm_watch(inotifyFileDescriptor, watchDescriptor);
+			unregisterWatchDescriptor(watchDescriptor);
+		}
+		// or do nothing
+	}
+
 	enum class EventType
 	{
 		Created, Modified, Deleted
