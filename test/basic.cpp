@@ -15,6 +15,14 @@ TEST_CASE("Basic indexing test")
 	REQUIRE(indexer.search("Tokenizer").contains(std::filesystem::canonical("include/indexer/indexer.h")));
 }
 
+TEST_CASE("Recursive indexing test")
+{
+	Indexer::Indexer indexer;
+
+	indexer.addPath("include");
+	REQUIRE(indexer.search("Indexer").contains(std::filesystem::canonical("include/indexer/indexer.h")));
+}
+
 TEST_CASE("Path normalization test")
 {
 	Indexer::Indexer indexer;
