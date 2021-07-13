@@ -26,9 +26,8 @@ void wait()
 TEST_CASE("Watching filesystem")
 {
 	Indexer::Indexer indexer;
-	std::filesystem::path testDir = "__test_dir";
+	std::filesystem::path testDir = std::filesystem::weakly_canonical("./__test_dir");
 	std::filesystem::create_directory(testDir);
-	testDir = std::filesystem::canonical(testDir);
 
 	SECTION("Basic modifications are caught")
 	{
