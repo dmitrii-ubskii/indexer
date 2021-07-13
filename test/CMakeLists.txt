@@ -15,8 +15,10 @@ target_include_directories(tests
 )
 target_link_libraries(tests PRIVATE Catch2::Catch2WithMain indexer)
 
-if(CMAKE_BUILD_TYPE STREQUAL "Debug")
-    target_compile_options(tests PRIVATE --coverage)
-    target_link_libraries(tests PRIVATE gcov)
+if (NOT MSVC)
+    if(CMAKE_BUILD_TYPE STREQUAL "Debug")
+        target_compile_options(tests PRIVATE --coverage)
+        target_link_libraries(tests PRIVATE gcov)
+    endif()
 endif()
 
