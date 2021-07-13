@@ -3,7 +3,6 @@ add_executable(tests
     filesystem_watch.cpp
 )
 target_compile_features(tests PRIVATE cxx_std_20)
-target_compile_options(tests PRIVATE --coverage)
 
 target_include_directories(tests SYSTEM
     PRIVATE
@@ -14,4 +13,10 @@ target_include_directories(tests
         .
         ../include
 )
-target_link_libraries(tests PRIVATE Catch2::Catch2WithMain indexer gcov pthread)
+target_link_libraries(tests PRIVATE Catch2::Catch2WithMain indexer)
+
+if(CMAKE_BUILD_TYPE STREQUAL "Debug")
+    target_compile_options(tests PRIVATE --coverage)
+    target_link_libraries(tests PRIVATE gcov)
+endif()
+
