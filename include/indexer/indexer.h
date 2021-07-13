@@ -68,7 +68,7 @@ enum class Recursive
 	No, Yes
 };
 
-using PathSet = std::unordered_set<std::filesystem::path, PathCanonicalHasher>;
+using PathSet = std::unordered_set<std::filesystem::path, PathHasher>;
 
 template <typename Tokenizer=WordTokenizer>
 class Indexer
@@ -181,7 +181,7 @@ private:
 	std::mutex indexMutex;
 
 	std::vector<std::filesystem::path> indexedFiles;
-	std::unordered_map<std::filesystem::path, std::unordered_set<std::string>, PathCanonicalHasher> forwardIndex;  // for updating
+	std::unordered_map<std::filesystem::path, std::unordered_set<std::string>, PathHasher> forwardIndex;  // for updating
 	std::unordered_map<std::string, std::unordered_set<std::size_t>> invertedIndex;  // for querying
 };
 }

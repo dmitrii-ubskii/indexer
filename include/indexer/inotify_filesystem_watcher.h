@@ -118,7 +118,8 @@ private:
 	int inotifyFd;
 
 	std::unordered_map<int, std::filesystem::path> idToPath;
-	std::unordered_map<std::filesystem::path, int, PathCanonicalHasher> pathToId;
+	std::unordered_map<std::filesystem::path, int, PathHasher> pathToId;
+
 };
 }
 

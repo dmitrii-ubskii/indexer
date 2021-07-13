@@ -6,7 +6,7 @@
 
 namespace Indexer
 {
-struct PathCanonicalHasher
+struct PathHasher
 {
 	std::size_t operator()(std::filesystem::path const& path) const
 	{
