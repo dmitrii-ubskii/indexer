@@ -20,7 +20,7 @@ void write(std::filesystem::path const& file, std::string const& string)
 
 void wait()
 {
-	std::this_thread::sleep_for(100us);  // allow the watcher to catch up
+	std::this_thread::sleep_for(1ms);  // allow the watcher to catch up
 }
 
 TEST_CASE("Watching filesystem")
