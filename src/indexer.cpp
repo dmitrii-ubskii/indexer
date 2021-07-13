@@ -50,13 +50,13 @@ void Indexer::Indexer::addDirectory(std::filesystem::path const& path, Recursive
 	for (auto&& p: std::filesystem::directory_iterator(path))
 	{
 		auto entry = p.path();
-		if (std::filesystem::is_directory(entry) && recursively == Recursive::Yes)
-		{
-			addDirectory(entry, recursively);
-		}
-		else
+		if (not std::filesystem::is_directory(entry))
 		{
 			addFile(entry);
+		}
+		else if (recursively == Recursive::Yes)
+		{
+			addDirectory(entry, recursively);
 		}
 	}
 }
