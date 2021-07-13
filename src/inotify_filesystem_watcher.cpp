@@ -1,5 +1,6 @@
+#include "indexer/filesystem_watcher.h"
+
 #include <cassert>
-#include <filesystem>
 #include <stdexcept>
 #include <unordered_map>
 
@@ -8,7 +9,6 @@
 #include <sys/ioctl.h>
 #include <unistd.h>
 
-#include "indexer/filesystem_watcher.h"
 #include "indexer/path_utils.h"
 
 namespace Indexer
