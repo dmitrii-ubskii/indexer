@@ -1,5 +1,7 @@
 #include "indexer/indexer.h"
 
+#include <cassert>
+
 void Indexer::Indexer::addPath(std::filesystem::path const& path, Recursive recursively)
 {
 	auto canonicalPath = std::filesystem::weakly_canonical(path);
@@ -36,6 +38,8 @@ void Indexer::Indexer::addPath(std::filesystem::path const& path, Recursive recu
 
 void Indexer::Indexer::addDirectory(std::filesystem::path const& path, Recursive recursively)
 {
+	assert(std::filesystem::is_directory(path));
+
 	// only locking for these two operations
 	{
 		std::unique_lock pin{indexMutex};
@@ -84,6 +88,8 @@ std::unordered_set<std::string> getFileTokens(std::filesystem::path const& path,
 
 void Indexer::Indexer::addFile(std::filesystem::path const& path)
 {
+	assert(std::filesystem::is_regular_file(path) || std::filesystem::is_symlink(path));
+
 	std::unique_lock pin{indexMutex};
 	watcher.addFile(path);
 
