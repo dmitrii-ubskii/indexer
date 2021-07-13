@@ -198,7 +198,10 @@ void Indexer::Indexer::watchFilesystem()
 						auto parent = event.path.parent_path();
 						if (not event.isDirectory)
 						{
-							addFile(event.path);
+							if (indexedDirectories.contains(parent) || addedPaths.contains(event.path))
+							{
+								addFile(event.path);
+							}
 						}
 						else if (indexedDirectories.contains(parent) && indexedDirectories.at(parent) == Recursive::Yes)
 						{
