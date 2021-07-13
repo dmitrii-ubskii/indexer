@@ -60,7 +60,7 @@ private:
 	std::string_view source;
 	std::string_view nextToken;
 	std::string_view::iterator cursor;
-	bool isDone = true;
+	bool isDone{true};
 };
 
 enum class Recursive
@@ -174,7 +174,7 @@ private:
 
 	Tokenizer tokenizer;
 
-	bool doStop = false;
+	bool doStop{false};
 	FilesystemWatcher watcher;
 	std::thread filesystemWatcherThread{&Indexer::watchFilesystem, this};
 
