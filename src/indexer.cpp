@@ -14,6 +14,10 @@ void Indexer::Indexer::addPath(std::filesystem::path const& path, Recursive recu
 	if (not std::filesystem::exists(canonicalPath))
 	{
 		awaitCreation(canonicalPath);
+		if (recursively == Recursive::Yes)  // assume directory
+		{
+			indexedDirectories.insert({canonicalPath, recursively});
+		}
 	}
 	else if (std::filesystem::is_directory(canonicalPath))
 	{
