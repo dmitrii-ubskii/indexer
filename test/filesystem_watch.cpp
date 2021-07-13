@@ -7,6 +7,22 @@
 
 using namespace std::chrono_literals;
 
+void touch(std::filesystem::path const& file)
+{
+	std::ofstream fout{file, std::ios_base::app};
+}
+
+void write(std::filesystem::path const& file, std::string const& string)
+{
+	std::ofstream fout{file};  // creates the file
+	fout << string;
+}
+
+void wait()
+{
+	std::this_thread::sleep_for(100us);  // allow the watcher to catch up
+}
+
 TEST_CASE("Watching filesystem")
 {
 	Indexer::Indexer indexer;
@@ -17,15 +33,14 @@ TEST_CASE("Watching filesystem")
 	SECTION("Basic modifications are caught")
 	{
 		auto testFile = testDir / "section_modify";
-		std::ofstream testFileOut{testFile};  // creates the file
+		touch(testFile);
 
 		indexer.addPath(testFile);
 		REQUIRE_FALSE(indexer.search("MODIFY").contains(testFile));
 
-		testFileOut << "MODIFY\n";
-		testFileOut.close();
+		write(testFile, "MODIFY\n");
+		wait();
 
-		std::this_thread::sleep_for(100us);  // allow the watcher to catch up
 		REQUIRE(indexer.search("MODIFY").contains(testFile));
 
 		std::filesystem::remove(testFile);
@@ -36,22 +51,18 @@ TEST_CASE("Watching filesystem")
 		indexer.addPath(testDir);
 		auto testFile = testDir / "section_create";
 
-		std::ofstream testFileOut{testFile};
-		testFileOut << "CREATE\n";
-		testFileOut.close();
+		write(testFile, "CREATE\n");
+		wait();
 
-		std::this_thread::sleep_for(10ms);  // allow the watcher to catch up
 		REQUIRE(indexer.search("CREATE").contains(testFile));
 
 		auto subdir = testDir / "section_create_recursive";
 		std::filesystem::create_directory(subdir);
 		auto subdirFile = subdir / "section_create_inner";
 
-		testFileOut.open(subdirFile);
-		testFileOut << "CREATE\n";
-		testFileOut.close();
+		write(subdirFile, "CREATE\n");
+		wait();
 
-		std::this_thread::sleep_for(100us);  // allow the watcher to catch up
 		REQUIRE(indexer.search("CREATE").contains(subdirFile));
 
 		std::filesystem::remove_all(subdir);
@@ -71,7 +82,7 @@ TEST_CASE("Watching filesystem")
 		REQUIRE(indexer.search("DELETE").contains(testFile));
 
 		std::filesystem::remove(testFile);
-		std::this_thread::sleep_for(100us);  // allow the watcher to catch up
+		wait();
 		REQUIRE_FALSE(indexer.search("DELETE").contains(testFile));
 	}
 
