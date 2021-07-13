@@ -1,6 +1,3 @@
-#ifndef INDEXER_INOTIFY_FILESYSTEM_WATCHER_H_
-#define INDEXER_INOTIFY_FILESYSTEM_WATCHER_H_
-
 #include <cassert>
 #include <filesystem>
 #include <stdexcept>
@@ -11,14 +8,15 @@
 #include <sys/ioctl.h>
 #include <unistd.h>
 
+#include "indexer/filesystem_watcher.h"
 #include "indexer/path_utils.h"
 
 namespace Indexer
 {
-class FilesystemWatcher
+class FilesystemWatcherImpl
 {
 public:
-	FilesystemWatcher()
+	FilesystemWatcherImpl()
 		: inotifyFileDescriptor{inotify_init()}
 	{
 		if (inotifyFileDescriptor < 0)  // error
@@ -70,19 +68,7 @@ public:
 		// or do nothing
 	}
 
-	enum class EventType
-	{
-		Created, Modified, Deleted
-	};
-
-	struct Event
-	{
-		EventType type;
-		std::filesystem::path path;
-		bool isDirectory;
-	};
-
-	std::vector<Event> pollEvents()
+	std::vector<FilesystemWatcher::Event> pollEvents()
 	{
 		pollfd pollDescriptor{inotifyFileDescriptor, POLLIN, 0};
 		poll(&pollDescriptor, 1, 5);
@@ -116,7 +102,7 @@ public:
 
 		auto* end = buffer.data() + bytesRead;
 
-		std::vector<Event> events;
+		std::vector<FilesystemWatcher::Event> events;
 
 		for (auto p = buffer.data(); p < end; )
 		{
@@ -134,20 +120,20 @@ public:
 			// modified
 			if (event->mask & IN_MODIFY)
 			{
-				events.emplace_back(EventType::Modified, path, false);
+				events.emplace_back(FilesystemWatcher::EventType::Modified, path, false);
 			}
 
 			// created
 			if (event->mask & (IN_CREATE | IN_MOVED_TO))
 			{
-				events.emplace_back(EventType::Created, path / event->name, event->mask & IN_ISDIR);
+				events.emplace_back(FilesystemWatcher::EventType::Created, path / event->name, event->mask & IN_ISDIR);
 			}
 
 			// deleted
 			if (event->mask & (IN_IGNORED | IN_MOVE_SELF))
 			{
 				unregisterWatchDescriptor(event->wd);
-				events.emplace_back(EventType::Deleted, path, event->mask & IN_ISDIR);
+				events.emplace_back(FilesystemWatcher::EventType::Deleted, path, event->mask & IN_ISDIR);
 			}
 		}
 
@@ -173,6 +159,29 @@ private:
 		pathToDescriptor.erase(path);
 	}
 };
+
+FilesystemWatcher::FilesystemWatcher(): pImpl{std::make_unique<FilesystemWatcherImpl>()} {}
+FilesystemWatcher::FilesystemWatcher(FilesystemWatcher&&) = default;
+FilesystemWatcher& FilesystemWatcher::operator=(FilesystemWatcher&&) = default;
+FilesystemWatcher::~FilesystemWatcher() = default;
+
+void FilesystemWatcher::addFile(const std::filesystem::path &path)
+{
+	pImpl->addFile(path);
 }
 
-#endif // INDEXER_INOTIFY_FILESYSTEM_WATCHER_H_
+void FilesystemWatcher::addDirectory(const std::filesystem::path &path)
+{
+	pImpl->addDirectory(path);
+}
+
+void FilesystemWatcher::removePath(std::filesystem::path const& path)
+{
+	pImpl->removePath(path);
+}
+
+std::vector<FilesystemWatcher::Event> FilesystemWatcher::pollEvents()
+{
+	return pImpl->pollEvents();
+}
+}

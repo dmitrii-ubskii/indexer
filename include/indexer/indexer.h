@@ -10,7 +10,7 @@
 #include <unordered_set>
 #include <vector>
 
-#include "indexer/inotify_filesystem_watcher.h"
+#include "indexer/filesystem_watcher.h"
 #include "indexer/path_utils.h"
 
 namespace Indexer
