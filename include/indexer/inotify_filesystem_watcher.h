@@ -1,9 +1,12 @@
 #ifndef INDEXER_INOTIFY_FILESYSTEM_WATCHER_H_
 #define INDEXER_INOTIFY_FILESYSTEM_WATCHER_H_
 
+#include <cassert>
 #include <filesystem>
 #include <stdexcept>
+#include <unordered_map>
 
+#include <poll.h>
 #include <sys/inotify.h>
 #include <sys/ioctl.h>
 #include <unistd.h>
@@ -16,11 +19,12 @@ class FilesystemWatcher
 {
 public:
 	FilesystemWatcher()
-		: inotifyFd{inotify_init()}
+		: inotifyFileDescriptor{inotify_init()}
 	{
-		if (inotifyFd < 0)  // error
+		if (inotifyFileDescriptor < 0)  // error
 		{
-			switch (inotifyFd)
+			auto errorCode = inotifyFileDescriptor;
+			switch (errorCode)
 			{
 				case EMFILE:
 					throw std::runtime_error{
@@ -37,7 +41,7 @@ public:
 					};
 				default:
 					throw std::runtime_error{
-						"inotify_init(): Unexpected error code " + std::to_string(inotifyFd)
+						"inotify_init(): Unexpected error code " + std::to_string(errorCode)
 					};
 			}
 		}
@@ -45,31 +49,48 @@ public:
 
 	void addFile(std::filesystem::path const& path)
 	{
-		auto wd = inotify_add_watch(inotifyFd, path.c_str(), IN_MODIFY | IN_DELETE_SELF | IN_MOVE_SELF);
-		idToPath.insert({wd, path});
-		pathToId.insert({path, wd});
+		auto watchDescriptor = inotify_add_watch(inotifyFileDescriptor, path.c_str(), IN_MODIFY | IN_MOVE_SELF);
+		registerWatchDescriptor(watchDescriptor, path);
 	}
 
 	void addDirectory(std::filesystem::path const& path)
 	{
-		auto wd = inotify_add_watch(inotifyFd, path.c_str(), IN_CREATE | IN_DELETE | IN_DELETE_SELF | IN_MOVE_SELF | IN_MOVE);
-		idToPath.insert({wd, path});
-		pathToId.insert({path, wd});
+		auto watchDescriptor = inotify_add_watch(inotifyFileDescriptor, path.c_str(), IN_CREATE | IN_MOVED_TO | IN_MOVE_SELF);
+		registerWatchDescriptor(watchDescriptor, path);
 	}
 
-	void query()
+	enum class EventType
 	{
+		Created, Modified, Deleted
+	};
+
+	struct Event
+	{
+		EventType type;
+		std::filesystem::path path;
+		bool isDirectory;
+	};
+
+	std::vector<Event> pollEvents()
+	{
+		pollfd pollDescriptor{inotifyFileDescriptor, POLLIN, 0};
+		poll(&pollDescriptor, 1, 5);
+		if (not (pollDescriptor.revents & POLLIN))  // no data available to read
+		{
+			return {};  // so no events generated
+		}
+
 		std::size_t buffSize = 0;
-		ioctl(inotifyFd, FIONREAD, reinterpret_cast<char*>(&buffSize));
-		if (buffSize == 0)
-			return;
+		ioctl(inotifyFileDescriptor, FIONREAD, reinterpret_cast<char*>(&buffSize));
+		assert(buffSize > 0);  // we know for a fact there are events in the pipeline
 
 		auto buffer = std::vector<char>(buffSize);
 
-		auto bytesReadOrError = read(inotifyFd, buffer.data(), buffSize);
-		if (bytesReadOrError < 0)  // error
+		auto bytesRead = read(inotifyFileDescriptor, buffer.data(), buffSize);
+		if (bytesRead < 0)  // error
 		{
-			switch (bytesReadOrError)
+			auto errorCode = bytesRead;
+			switch (errorCode)
 			{
 				case EIO:
 					throw std::runtime_error{
@@ -77,49 +98,69 @@ public:
 					};
 				default:
 					throw std::runtime_error{
-						"inotify read: Unexpected error code " + std::to_string(bytesReadOrError)
+						"inotify read: Unexpected error code " + std::to_string(errorCode)
 					};
 			}
 		}
 
-		auto* end = buffer.data() + bytesReadOrError;
+		auto* end = buffer.data() + bytesRead;
+
+		std::vector<Event> events;
 
 		for (auto p = buffer.data(); p < end; )
 		{
 			auto* event = reinterpret_cast<inotify_event const*>(p);
 			p += sizeof(inotify_event) + event->len;
-			/* Print event type */
-	
+
+			// queued event for an already unregistered descriptor
+			if (not descriptorToPath.contains(event->wd))
+			{
+				continue;
+			}
+
+			auto path = descriptorToPath.at(event->wd);
+
+			// modified
 			if (event->mask & IN_MODIFY)
-				printf("IN_MODIFY: ");
-			if (event->mask & IN_DELETE_SELF)
-				printf("IN_DELETE_SELF: ");
-			if (event->mask & IN_MOVE_SELF)
-				printf("IN_MOVE_SELF: ");
-			if (event->mask & IN_IGNORED)
-				printf("IN_IGNORED: ");
-			printf("%x ", event->mask);
-	
-			/* Print the name of the file */
-	
-			printf("%d", event->wd);
-	
-			/* Print type of filesystem object */
-	
-			if (event->mask & IN_ISDIR)
-				printf(" [directory]\n");
-			else
-				printf(" [file]\n");
+			{
+				events.emplace_back(EventType::Modified, path, false);
+			}
+
+			// created
+			if (event->mask & (IN_CREATE | IN_MOVED_TO))
+			{
+				events.emplace_back(EventType::Created, path / event->name, event->mask & IN_ISDIR);
+			}
+
+			// deleted
+			if (event->mask & (IN_IGNORED | IN_MOVE_SELF))
+			{
+				unregisterWatchDescriptor(event->wd);
+				events.emplace_back(EventType::Deleted, path, event->mask & IN_ISDIR);
+			}
 		}
 
+		return events;
 	}
 
 private:
-	int inotifyFd;
+	int inotifyFileDescriptor;
 
-	std::unordered_map<int, std::filesystem::path> idToPath;
-	std::unordered_map<std::filesystem::path, int, PathHasher> pathToId;
+	std::unordered_map<int, std::filesystem::path> descriptorToPath;
+	std::unordered_map<std::filesystem::path, int, PathHasher> pathToDescriptor;
 
+	void registerWatchDescriptor(int watchDescriptor, std::filesystem::path const& path)
+	{
+		descriptorToPath.insert({watchDescriptor, path});
+		pathToDescriptor.insert({path, watchDescriptor});
+	}
+
+	void unregisterWatchDescriptor(int watchDescriptor)
+	{
+		auto& path = descriptorToPath.at(watchDescriptor);
+		descriptorToPath.erase(watchDescriptor);
+		pathToDescriptor.erase(path);
+	}
 };
 }
 

@@ -1,5 +1,6 @@
 add_executable(tests
     basic.cpp
+    filesystem_watch.cpp
 )
 target_compile_features(tests PRIVATE cxx_std_20)
 target_compile_options(tests PRIVATE --coverage)

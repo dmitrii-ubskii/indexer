@@ -115,7 +115,13 @@ public:
 private:
 	void addDirectory(std::filesystem::path const& path, Recursive recursively)
 	{
-		watcher.addDirectory(path);
+		// only locking for these two operations
+		{
+			std::unique_lock pin{indexMutex};
+			watcher.addDirectory(path);
+			indexedDirectories.insert({path, recursively});
+		}
+
 		for (auto&& p: std::filesystem::directory_iterator(path))
 		{
 			auto entry = p.path();
@@ -176,11 +182,81 @@ private:
 		}
 	}
 
+	void removeFile(std::filesystem::path const& path)
+	{
+		std::unique_lock pin{indexMutex};
+		auto fileId = fileToId.at(path);
+
+		auto& fileTokens = forwardIndex.at(fileId);
+		for (auto const& token: fileTokens)
+		{
+			invertedIndex.at(token).erase(fileId);
+		}
+		forwardIndex.erase(fileId);
+	}
+
+	void reindexFile(std::filesystem::path const& path)
+	{
+		std::unique_lock pin{indexMutex};
+		auto fileId = fileToId.at(path);
+
+		std::unordered_set<std::string> newTokens = getFileTokens(path);
+		for (auto const& token: newTokens)
+		{
+			if (not invertedIndex.contains(token))
+			{
+				invertedIndex.insert({token, {}});
+			}
+			invertedIndex.at(token).insert(fileId);
+		}
+
+		auto& fileTokens = forwardIndex.at(fileId);
+		for (auto const& token: fileTokens)
+		{
+			if (not newTokens.contains(token))
+			{
+				invertedIndex.at(token).erase(fileId);
+			}
+		}
+		fileTokens = std::move(newTokens);
+	}
+
 	void watchFilesystem()
 	{
 		while (not doStop)
 		{
-			watcher.query();
+			for (auto const& event: watcher.pollEvents())
+			{
+				switch (event.type)
+				{
+					case FilesystemWatcher::EventType::Modified:
+						reindexFile(event.path);
+						break;
+
+					case FilesystemWatcher::EventType::Created:
+						{
+							auto parent = event.path.parent_path();
+							if (not event.isDirectory)
+							{
+								addFile(event.path);
+							}
+							else if (indexedDirectories.at(parent) == Recursive::Yes)
+							{
+								addDirectory(event.path, Recursive::Yes);
+							}
+							// TODO recreation
+						}
+						break;
+
+					case FilesystemWatcher::EventType::Deleted:
+						if (fileToId.contains(event.path))
+						{
+							removeFile(event.path);
+						}
+						// TODO add recreation watch
+						break;
+				}
+			}
 		}
 	}
 
@@ -195,6 +271,8 @@ private:
 	bool doStop{false};
 	FilesystemWatcher watcher;
 	std::thread filesystemWatcherThread{&Indexer::watchFilesystem, this};
+
+	std::unordered_map<std::filesystem::path, Recursive, PathHasher> indexedDirectories;
 
 	std::mutex indexMutex;
 
