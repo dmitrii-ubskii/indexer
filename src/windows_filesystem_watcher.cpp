@@ -4,7 +4,6 @@
 #include <condition_variable>
 #include <mutex>
 #include <thread>
-#include <queue>
 
 #include <Windows.h>
 
@@ -25,13 +24,19 @@ public:
 	{
 		constexpr auto flags = FILE_NOTIFY_CHANGE_DIR_NAME | FILE_NOTIFY_CHANGE_FILE_NAME | FILE_NOTIFY_CHANGE_ATTRIBUTES |
 			FILE_NOTIFY_CHANGE_SIZE | FILE_NOTIFY_CHANGE_LAST_WRITE | FILE_NOTIFY_CHANGE_SECURITY;
-		watchThreads.insert({path, PathWatchThread{path, flags, &eventQueue}});
+		if (not watchThreads.contains(path))
+		{
+			watchThreads.insert({path, PathWatchThread{path, flags, &eventQueue}});
+		}
 	}
 
 	void addDirectory(std::filesystem::path const& path)
 	{
 		constexpr auto flags = FILE_NOTIFY_CHANGE_DIR_NAME | FILE_NOTIFY_CHANGE_ATTRIBUTES | FILE_NOTIFY_CHANGE_FILE_NAME;
-		watchThreads.insert({path, PathWatchThread{path, flags, &eventQueue}});
+		if (not watchThreads.contains(path))
+		{
+			watchThreads.insert({path, PathWatchThread{path, flags, &eventQueue}});
+		}
 	}
 
 	void removePath(std::filesystem::path const& path)
@@ -96,7 +101,8 @@ private:
 		~PathWatchThread()
 		{
 			doStop = true;
-			thread.join();
+			if (thread.joinable())
+				thread.join();
 		}
 
 	private:
