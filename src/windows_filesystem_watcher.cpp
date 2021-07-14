@@ -1,11 +1,16 @@
 #include "indexer/filesystem_watcher.h"
 
+#include <chrono>
+#include <condition_variable>
 #include <mutex>
 #include <thread>
+#include <queue>
 
 #include <Windows.h>
 
 #include "indexer/path_utils.h"
+
+using namespace std::chrono_literals;
 
 namespace Indexer
 {
@@ -39,13 +44,43 @@ public:
 
 	std::vector<FilesystemWatcher::Event> pollEvents()
 	{
-		return {};
+		return eventQueue.drain();
 	}
 
 private:
 	class EventQueue
 	{
+	public:
+		std::vector<FilesystemWatcher::Event> drain()
+		{
+			std::unique_lock<std::mutex> pin{m};
+			if (not cv.wait_for(pin, 5ms, [this]{ return not empty(); }))
+			{
+				return {};
+			}
 
+			auto events = std::vector<FilesystemWatcher::Event>{};
+			std::swap(events, queue);
+			return events;
+		}
+
+		void push(FilesystemWatcher::Event ev)
+		{
+			std::unique_lock<std::mutex> pin{m};
+			queue.push_back(ev);
+			cv.notify_all();
+		}
+
+		bool empty() const
+		{
+			return queue.empty();
+		}
+
+	private:
+		mutable std::mutex m;
+		std::condition_variable cv;
+
+		std::vector<FilesystemWatcher::Event> queue;
 	} eventQueue;
 
 	class PathWatchThread
