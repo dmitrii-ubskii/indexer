@@ -1,24 +1,16 @@
 #include <catch2/catch_test_macros.hpp>
 
+#include <chrono>
 #include <filesystem>
-#include <fstream>
+#include <thread>
 
 #include "indexer/indexer.h"
 
+#include "filesystem_utils.h"
+
 using namespace std::chrono_literals;
 
-void touch(std::filesystem::path const& file)
-{
-	std::ofstream fout{file, std::ios_base::app};
-}
-
-void write(std::filesystem::path const& file, std::string const& string)
-{
-	std::ofstream fout{file};  // creates the file
-	fout << string;
-}
-
-void wait()
+inline void wait()
 {
 	std::this_thread::sleep_for(1ms);  // allow the watcher to catch up
 }
@@ -26,7 +18,7 @@ void wait()
 TEST_CASE("Watching filesystem")
 {
 	Indexer::Indexer indexer;
-	std::filesystem::path testDir = std::filesystem::weakly_canonical("./__test_dir");
+	std::filesystem::path testDir = std::filesystem::current_path() / "__test_dir";
 	std::filesystem::create_directory(testDir);
 
 	SECTION("Basic modifications are caught")
@@ -73,10 +65,7 @@ TEST_CASE("Watching filesystem")
 	SECTION("File deletion is caught")
 	{
 		auto testFile = testDir / "section_delete";
-
-		std::ofstream testFileOut{testFile};
-		testFileOut << "DELETE\n";
-		testFileOut.close();
+		write(testFile, "DELETE\n");
 
 		indexer.addPath(testDir);
 
@@ -93,7 +82,7 @@ TEST_CASE("Watching filesystem")
 TEST_CASE("Catching deleted files recreation")
 {
 	Indexer::Indexer indexer;
-	std::filesystem::path testDir = std::filesystem::weakly_canonical("./__test_dir");
+	std::filesystem::path testDir = std::filesystem::current_path() / "__test_dir";
 	std::filesystem::create_directory(testDir);
 
 	SECTION("Deleted and recreated files are caught")
