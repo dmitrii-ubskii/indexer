@@ -268,6 +268,7 @@ void Indexer::Indexer::watchFilesystem()
 						{
 							awaitCreation(event.path / path);
 						}
+						watcher.removePath(event.path);
 						creationWatches.erase(event.path);
 					}
 					break;
