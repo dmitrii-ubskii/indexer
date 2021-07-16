@@ -135,7 +135,7 @@ private:
 	PathSet addedPaths;
 	std::unordered_map<std::filesystem::path, Recursive, PathHasher> indexedDirectories;
 
-	std::mutex indexMutex;
+	mutable std::mutex indexMutex;
 
 	std::unordered_map<std::filesystem::path, PathSet, PathHasher> creationWatches;
 

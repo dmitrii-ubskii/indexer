@@ -31,6 +31,7 @@ void Indexer::Indexer::addPath(std::filesystem::path const& path, Recursive recu
 
 [[nodiscard]] Indexer::PathSet Indexer::Indexer::search(std::string const& needle) const
 {
+	std::unique_lock pin{indexMutex};
 	if (not invertedIndex.contains(needle))
 		return PathSet{};
 
