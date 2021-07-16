@@ -102,7 +102,10 @@ public:
 	~Indexer()
 	{
 		doStop = true;
-		filesystemWatcherThread.join();
+		if (filesystemWatcherThread.joinable())
+		{
+			filesystemWatcherThread.join();
+		}
 	}
 
 	void addPath(std::filesystem::path const&, Recursive = Recursive::No);

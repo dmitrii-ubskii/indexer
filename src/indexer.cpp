@@ -37,7 +37,10 @@ void Indexer::Indexer::addPath(std::filesystem::path const& path, Recursive recu
 
 	PathSet haystacks;
 	for (auto&& i: invertedIndex.at(needle))
+	{
+		assert(idToFile.contains(i));
 		haystacks.insert(idToFile.at(i));
+	}
 	return haystacks;
 }
 
@@ -125,19 +128,23 @@ void Indexer::Indexer::addFile(std::filesystem::path const& path)
 void Indexer::Indexer::removeFile(std::filesystem::path const& path)
 {
 	std::unique_lock pin{indexMutex};
+	assert(fileToId.contains(path));
 	auto fileId = fileToId.at(path);
-
-	auto& fileTokens = forwardIndex.at(fileId);
-	for (auto const& token: fileTokens)
+	if (forwardIndex.contains(fileId))
 	{
-		invertedIndex.at(token).erase(fileId);
+		auto& fileTokens = forwardIndex.at(fileId);
+		for (auto const& token: fileTokens)
+		{
+			invertedIndex.at(token).erase(fileId);
+		}
+		forwardIndex.erase(fileId);
 	}
-	forwardIndex.erase(fileId);
 }
 
 void Indexer::Indexer::reindexFile(std::filesystem::path const& path)
 {
 	std::unique_lock pin{indexMutex};
+	assert(fileToId.contains(path));
 	auto fileId = fileToId.at(path);
 
 	std::unordered_set<std::string> newTokens = getFileTokens(path, *tokenizer);
@@ -150,6 +157,7 @@ void Indexer::Indexer::reindexFile(std::filesystem::path const& path)
 		invertedIndex.at(token).insert(fileId);
 	}
 
+	assert(forwardIndex.contains(fileId));
 	auto& fileTokens = forwardIndex.at(fileId);
 	for (auto const& token: fileTokens)
 	{
