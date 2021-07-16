@@ -63,9 +63,7 @@ public:
 		{
 			auto watchDescriptor = pathToDescriptor.at(path);
 			inotify_rm_watch(inotifyFileDescriptor, watchDescriptor);
-			unregisterWatchDescriptor(watchDescriptor);
 		}
-		// or do nothing
 	}
 
 	std::vector<FilesystemWatcher::Event> pollEvents()
