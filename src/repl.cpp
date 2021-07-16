@@ -38,7 +38,16 @@ public:
 
 	void showHelp(std::string const& command)
 	{
-		if (helps.contains(command))
+		if (command == "")
+		{
+			std::cerr << "Available commands:\n";
+			for (auto const& [cmd, _]: helps)
+			{
+				std::cerr << cmd << '\t';
+			}
+			std::cerr << "\nType `help cmd` for help on `cmd`\n";
+		}
+		else if (helps.contains(command))
 		{
 			std::cerr << helps.at(command) << "\n";
 		}
@@ -81,7 +90,7 @@ int main()
 	Repl repl;
 	repl.add_command(
 		"help", [&](auto rest){ repl.showHelp(std::string{rest}); },
-		"help: display help for a given command"
+		"help [cmd]: display help for a given command"
 	);
 	repl.add_alias("h", "help");
 	repl.add_alias("?", "help");
@@ -100,7 +109,7 @@ int main()
 			auto duration = std::chrono::steady_clock::now() - start;
 			std::cerr << "Took ~" << formatDuration(duration) << " to index\n";
 		},
-		"add: add a path to the index"
+		"add [-r] <path>: add a path to the index"
 	);
 
 	repl.add_command(
@@ -109,7 +118,7 @@ int main()
 			for (auto&& f: indexer.search(std::string{token}))
 				std::cout << f << "\n";
 		},
-		"search: list files containing the search term"
+		"search <token>: list files containing the search term"
 	);
 
 	std::string cmd;
