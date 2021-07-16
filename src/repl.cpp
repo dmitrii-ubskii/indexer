@@ -104,8 +104,14 @@ int main()
 	repl.add_command(
 		"add",
 		[&](auto path) {
+			auto recursive = Indexer::Recursive::No;
+			if (path.starts_with("-r "))
+			{
+				recursive = Indexer::Recursive::Yes;
+				path = path.data() + 3;
+			}
 			auto start = std::chrono::steady_clock::now();
-			indexer.addPath(path);
+			indexer.addPath(path, recursive);
 			auto duration = std::chrono::steady_clock::now() - start;
 			std::cerr << "Took ~" << formatDuration(duration) << " to index\n";
 		},
