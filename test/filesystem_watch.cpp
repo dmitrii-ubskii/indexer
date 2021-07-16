@@ -12,7 +12,7 @@ using namespace std::chrono_literals;
 
 inline void wait()
 {
-	std::this_thread::sleep_for(1ms);  // allow the watcher to catch up
+	std::this_thread::sleep_for(50ms);  // allow the watcher to catch up
 }
 
 TEST_CASE("Watching filesystem")
