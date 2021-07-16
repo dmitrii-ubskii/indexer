@@ -1,6 +1,7 @@
 #include "indexer/indexer.h"
 
 #include <cassert>
+#include <iostream>
 
 void Indexer::Indexer::addPath(std::filesystem::path const& path, Recursive recursively)
 {
@@ -171,23 +172,31 @@ void Indexer::Indexer::reindexFile(std::filesystem::path const& path)
 
 void Indexer::Indexer::awaitCreation(std::filesystem::path const& path)
 {
-	if (std::filesystem::exists(path))
+	try
 	{
-		addPath(path);
-		return;
-	}
+		if (std::filesystem::exists(path))
+		{
+			addPath(path);
+			return;
+		}
 
-	auto existingParent = path.parent_path();
-	while (not std::filesystem::exists(existingParent))
-	{
-		existingParent = existingParent.parent_path();
+		auto existingParent = path.parent_path();
+		while (not std::filesystem::exists(existingParent))
+		{
+			existingParent = existingParent.parent_path();
+		}
+		if (not creationWatches.contains(existingParent))
+		{
+			watcher.addDirectory(existingParent);
+			creationWatches.insert({existingParent, {}});
+		}
+		creationWatches.at(existingParent).insert(path.lexically_relative(existingParent));
 	}
-	if (not creationWatches.contains(existingParent))
+	catch(const std::filesystem::filesystem_error& e)
 	{
-		watcher.addDirectory(existingParent);
-		creationWatches.insert({existingParent, {}});
+		std::cerr << e.what() << '\n';
+		std::cerr << e.code() << '\n';
 	}
-	creationWatches.at(existingParent).insert(path.lexically_relative(existingParent));
 }
 
 void Indexer::Indexer::watchFilesystem()
