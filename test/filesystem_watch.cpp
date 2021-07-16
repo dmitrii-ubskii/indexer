@@ -88,12 +88,8 @@ TEST_CASE("Catching deleted files recreation")
 	SECTION("Deleted and recreated files are caught")
 	{
 		auto testFile = testDir / "section_recreate";
-		touch(testFile);
-
+		write(testFile, "\nDELETE\n");
 		indexer.addPath(testFile);
-
-		write(testFile, "DELETE\n");
-		wait();
 
 		REQUIRE(indexer.search("DELETE").contains(testFile));
 
