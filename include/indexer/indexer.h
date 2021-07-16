@@ -37,7 +37,7 @@ public:
 	virtual void sendLine(std::string_view newLine) override
 	{
 		source = newLine;
-		cursor = std::find_if(source.begin(), source.end(), [](auto c){ return std::isalnum(c); });
+		cursor = std::find_if(source.begin(), source.end(), isWordCharacter);
 		isDone = false;
 		findNext();
 	}
@@ -68,10 +68,12 @@ private:
 			return;
 		}
 
-		auto end = std::find_if_not(cursor, source.end(), [](auto c){ return std::isalnum(c); });
+		auto end = std::find_if_not(cursor, source.end(), isWordCharacter);
 		nextToken = std::string_view{cursor, end}; 
-		cursor = std::find_if(end, source.end(), [](auto c){ return std::isalnum(c); });
+		cursor = std::find_if(end, source.end(), isWordCharacter);
 	}
+
+	static constexpr auto isWordCharacter = [](auto c){ return c >= 0 && c < 256 && std::isalnum(c); };
 
 	using size_type = std::string_view::size_type;
 
