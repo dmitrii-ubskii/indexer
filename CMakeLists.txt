@@ -42,7 +42,7 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/bin)
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/lib)
 
 if(CMAKE_BUILD_TYPE STREQUAL "Release")
-    add_compile_options(-s)
+    add_compile_options(-s -O3)
 elseif(CMAKE_BUILD_TYPE STREQUAL "Debug")
     add_compile_options(-Og -ggdb3 -fsanitize=undefined)
     add_link_options(-fsanitize=undefined)
