@@ -97,6 +97,11 @@ std::unordered_set<std::string> getFileTokens(std::filesystem::path const& path,
 
 void Indexer::Indexer::addFile(std::filesystem::path const& path)
 {
+	if (not std::filesystem::exists(path))  // deleted while we weren't looking
+	{
+		return;
+	}
+
 	assert(std::filesystem::is_regular_file(path) || std::filesystem::is_symlink(path));
 
 	std::unique_lock pin{indexMutex};
