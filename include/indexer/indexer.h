@@ -1,6 +1,7 @@
 #ifndef INDEXER_INDEXER_H_
 #define INDEXER_INDEXER_H_
 
+#include <atomic>
 #include <filesystem>
 #include <fstream>
 #include <memory>
@@ -101,10 +102,7 @@ public:
 	~Indexer()
 	{
 		doStop = true;
-		if (filesystemWatcherThread.joinable())
-		{
-			filesystemWatcherThread.join();
-		}
+		filesystemWatcherThread.join();
 	}
 
 	void addPath(std::filesystem::path const&, Recursive = Recursive::No);
@@ -129,7 +127,7 @@ private:
 
 	std::unique_ptr<Tokenizer> tokenizer;
 
-	bool doStop{false};
+	std::atomic<bool> doStop{false};
 	FilesystemWatcher watcher;
 	std::thread filesystemWatcherThread{&Indexer::watchFilesystem, this};
 

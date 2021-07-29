@@ -79,7 +79,7 @@ struct WatchInfo
 
 	EventQueue* eventQueue;
 
-	bool doStop{false};
+	std::atomic<bool> doStop{false};
 };
 
 void CALLBACK watchCallback(DWORD dwErrorCode, DWORD dwNumberOfBytesTransfered, LPOVERLAPPED lpOverlapped);
@@ -135,7 +135,7 @@ private:
 	ThreadSafeQueue<std::filesystem::path> addedDirectories;
 	ThreadSafeQueue<std::filesystem::path> removedPaths;
 
-	bool doStop{false};
+	std::atomic<bool> doStop{false};
 
 	void watchFilesystem()
 	{
