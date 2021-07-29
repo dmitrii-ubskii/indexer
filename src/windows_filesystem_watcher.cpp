@@ -17,10 +17,15 @@ template <typename T>
 class ThreadSafeQueue
 {
 public:
+	~ThreadSafeQueue()
+	{
+		sync.notify_all();
+	}
+
 	std::vector<T> waitDrain()
 	{
 		std::unique_lock<std::mutex> pin{contentsMutex};
-		if (not sync.wait_for(pin, 5ms, [this]{ return not empty(); }))
+		if (not sync.wait(pin, [this]{ return not emptyUnsafe(); }))
 		{
 			return {};
 		}
@@ -45,12 +50,12 @@ public:
 		sync.notify_all();
 	}
 
-	bool empty() const
+private:
+	bool emptyUnsafe() const
 	{
 		return queue.empty();
 	}
 
-private:
 	mutable std::mutex contentsMutex;
 	std::condition_variable sync;
 
