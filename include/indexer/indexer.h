@@ -127,10 +127,6 @@ private:
 
 	std::unique_ptr<Tokenizer> tokenizer;
 
-	std::atomic<bool> doStop{false};
-	FilesystemWatcher watcher;
-	std::thread filesystemWatcherThread{&Indexer::watchFilesystem, this};
-
 	// paths that were *explicitly* added by the user
 	PathSet addedPaths;
 	std::unordered_map<std::filesystem::path, Recursive, PathHasher> indexedDirectories;
@@ -144,6 +140,10 @@ private:
 
 	std::unordered_map<int, std::unordered_set<std::string>> forwardIndex;  // for updating
 	std::unordered_map<std::string, std::unordered_set<int>> invertedIndex;  // for querying
+
+	std::atomic<bool> doStop{false};
+	FilesystemWatcher watcher;
+	std::thread filesystemWatcherThread{&Indexer::watchFilesystem, this};
 };
 }
 

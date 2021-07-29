@@ -131,7 +131,6 @@ public:
 	}
 
 private:
-	std::thread watcherThread{&FilesystemWatcherImpl::watchFilesystem, this};
 	std::mutex watchesMutex;
 	std::condition_variable watchesSync;
 
@@ -255,6 +254,7 @@ private:
 	};
 
 	std::unordered_multimap<std::filesystem::path, PathWatcher, PathHasher> watches;
+	std::thread watcherThread{&FilesystemWatcherImpl::watchFilesystem, this};
 };
 
 void watchCallback(DWORD dwErrorCode, DWORD dwNumberOfBytesTransfered, LPOVERLAPPED lpOverlapped)
