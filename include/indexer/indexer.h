@@ -51,7 +51,7 @@ public:
 		return t;
 	}
 
-	[[nodiscard]] virtual bool done() const override { return isDone; }
+	virtual bool done() const override { return isDone; }
 
 private:
 	void findNext()
@@ -63,7 +63,6 @@ private:
 
 		if (cursor == source.end())
 		{
-			nextToken = "";
 			isDone = true;
 			return;
 		}
@@ -74,8 +73,6 @@ private:
 	}
 
 	static constexpr auto isWordCharacter = [](auto c){ return c >= 0 && c < 256 && std::isalnum(c); };
-
-	using size_type = std::string_view::size_type;
 
 	std::string_view source;
 	std::string_view nextToken;
