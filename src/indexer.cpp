@@ -107,17 +107,7 @@ void Indexer::Indexer::addFile(std::filesystem::path const& path)
 	std::unique_lock pin{indexMutex};
 	watcher.addFile(path);
 
-	int fileId;
-	if (fileToId.contains(path))
-	{
-		fileId = fileToId.at(path);
-	}
-	else
-	{
-		fileId = nextId();
-		fileToId.insert({path, fileId});
-		idToFile.insert({fileId, path});
-	}
+	auto fileId = getFileId(path);
 
 	auto [insertIterator, didInsert] = forwardIndex.insert({fileId, getFileTokens(path, *tokenizer)});
 	auto& fileTokens = insertIterator->second;

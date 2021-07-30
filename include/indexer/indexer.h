@@ -119,10 +119,21 @@ private:
 	void awaitCreation(std::filesystem::path const&);
 	void watchFilesystem();
 
-	int nextId()
+	int getFileId(std::filesystem::path const& path)
 	{
 		static int next = 0;
-		return next++;
+
+		if (fileToId.contains(path))
+		{
+			return fileToId.at(path);
+		}
+		else
+		{
+			auto fileId = next++;
+			fileToId.insert({path, fileId});
+			idToFile.insert({fileId, path});
+			return fileId;
+		}
 	}
 
 	std::unique_ptr<Tokenizer> tokenizer;
