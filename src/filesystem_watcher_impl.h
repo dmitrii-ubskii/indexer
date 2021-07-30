@@ -102,8 +102,6 @@ public:
 	}
 
 private:
-	std::thread watcherThread{&FilesystemWatcherImpl::watchFilesystem, this};
-
 	EventQueue eventQueue;
 	ThreadSafeQueue<std::filesystem::path> addedFiles;
 	ThreadSafeQueue<std::filesystem::path> addedDirectories;
@@ -112,6 +110,7 @@ private:
 	bool doStop{false};
 	
 	void watchFilesystem();
+	std::thread watcherThread{&FilesystemWatcherImpl::watchFilesystem, this};
 };
 
 class WatchReporter: public QObject
