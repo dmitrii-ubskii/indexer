@@ -1,6 +1,8 @@
 #ifndef INDEXER_INDEXER_H_
 #define INDEXER_INDEXER_H_
 
+#include <atomic>
+#include <condition_variable>
 #include <filesystem>
 #include <fstream>
 #include <memory>
@@ -21,6 +23,8 @@ class Tokenizer
 public:
 	virtual void sendLine(std::string_view newLine) = 0;
 	virtual void sendEof() = 0;
+
+	virtual std::unique_ptr<Tokenizer> clone() const = 0;
 
 	[[nodiscard]] virtual std::string_view next() = 0;
 	virtual bool done() const = 0;
@@ -44,6 +48,8 @@ public:
 
 	virtual void sendEof() override {}
 
+	virtual std::unique_ptr<Tokenizer> clone() const override { return std::make_unique<WordTokenizer>(); }
+
 	[[nodiscard]] virtual std::string_view next() override
 	{
 		auto t = nextToken;
@@ -51,7 +57,7 @@ public:
 		return t;
 	}
 
-	[[nodiscard]] virtual bool done() const override { return isDone; }
+	virtual bool done() const override { return isDone; }
 
 private:
 	void findNext()
@@ -63,7 +69,6 @@ private:
 
 		if (cursor == source.end())
 		{
-			nextToken = "";
 			isDone = true;
 			return;
 		}
@@ -74,8 +79,6 @@ private:
 	}
 
 	static constexpr auto isWordCharacter = [](auto c){ return c >= 0 && c < 256 && std::isalnum(c); };
-
-	using size_type = std::string_view::size_type;
 
 	std::string_view source;
 	std::string_view nextToken;
@@ -104,10 +107,7 @@ public:
 	~Indexer()
 	{
 		doStop = true;
-		if (filesystemWatcherThread.joinable())
-		{
-			filesystemWatcherThread.join();
-		}
+		filesystemWatcherThread.join();
 	}
 
 	void addPath(std::filesystem::path const&, Recursive = Recursive::No);
@@ -118,23 +118,38 @@ private:
 	void addDirectory(std::filesystem::path const&, Recursive);
 
 	void addFile(std::filesystem::path const&);
+	void addFileAsync(std::filesystem::path const&, std::thread::id parent);
 	void removeFile(std::filesystem::path const&);
 	void reindexFile(std::filesystem::path const&);
 
 	void awaitCreation(std::filesystem::path const&);
 	void watchFilesystem();
 
-	int nextId()
+	int getFileId(std::filesystem::path const& path)
 	{
 		static int next = 0;
-		return next++;
+
+		if (fileToId.contains(path))
+		{
+			return fileToId.at(path);
+		}
+		else
+		{
+			auto fileId = next++;
+			fileToId.insert({path, fileId});
+			idToFile.insert({fileId, path});
+			return fileId;
+		}
 	}
 
 	std::unique_ptr<Tokenizer> tokenizer;
 
-	bool doStop{false};
-	FilesystemWatcher watcher;
-	std::thread filesystemWatcherThread{&Indexer::watchFilesystem, this};
+	unsigned maxWorkers{std::thread::hardware_concurrency()};
+	unsigned numWorkers{0};
+	std::unordered_map<std::thread::id, unsigned> threadWorkers;
+
+	std::mutex workerMutex;
+	std::condition_variable workerSync;
 
 	// paths that were *explicitly* added by the user
 	PathSet addedPaths;
@@ -149,6 +164,10 @@ private:
 
 	std::unordered_map<int, std::unordered_set<std::string>> forwardIndex;  // for updating
 	std::unordered_map<std::string, std::unordered_set<int>> invertedIndex;  // for querying
+
+	std::atomic<bool> doStop{false};
+	FilesystemWatcher watcher;
+	std::thread filesystemWatcherThread{&Indexer::watchFilesystem, this};
 };
 }
 

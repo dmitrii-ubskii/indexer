@@ -28,6 +28,14 @@ void Indexer::Indexer::addPath(std::filesystem::path const& path, Recursive recu
 	{
 		addFile(canonicalPath);
 	}
+
+	auto threadId = std::this_thread::get_id();
+	std::unique_lock<std::mutex> pin{workerMutex};
+	if (not threadWorkers.contains(threadId))
+	{
+		return;  // no jobs created
+	}
+	workerSync.wait(pin, [this](){ return threadWorkers[std::this_thread::get_id()] == 0; });  // wait for jobs to finish
 }
 
 [[nodiscard]] Indexer::PathSet Indexer::Indexer::search(std::string const& needle) const
@@ -70,7 +78,7 @@ void Indexer::Indexer::addDirectory(std::filesystem::path const& path, Recursive
 	}
 }
 
-std::unordered_set<std::string> getFileTokens(std::filesystem::path const& path, Indexer::Tokenizer& tokenizer)
+std::unordered_set<std::string> getFileTokens(std::filesystem::path const& path, std::unique_ptr<Indexer::Tokenizer> tokenizer)
 {
 	std::unordered_set<std::string> fileTokens;
 	std::ifstream f{path};
@@ -78,16 +86,16 @@ std::unordered_set<std::string> getFileTokens(std::filesystem::path const& path,
 	while (not f.eof())
 	{
 		std::getline(f, buf);
-		tokenizer.sendLine(buf);
+		tokenizer->sendLine(buf);
 
 		if (f.eof())
 		{
-			tokenizer.sendEof();
+			tokenizer->sendEof();
 		}
 
-		while (not tokenizer.done())
+		while (not tokenizer->done())
 		{
-			auto token = std::string{tokenizer.next()};
+			auto token = std::string{tokenizer->next()};
 			fileTokens.insert(token);
 		}
 	}
@@ -104,23 +112,30 @@ void Indexer::Indexer::addFile(std::filesystem::path const& path)
 
 	assert(std::filesystem::is_regular_file(path) || std::filesystem::is_symlink(path));
 
-	std::unique_lock pin{indexMutex};
 	watcher.addFile(path);
 
-	int fileId;
-	if (fileToId.contains(path))
+	auto threadId = std::this_thread::get_id();
+	std::unique_lock<std::mutex> pin{workerMutex};
+	if (not threadWorkers.contains(threadId))
 	{
-		fileId = fileToId.at(path);
+		threadWorkers.insert({threadId, 0});
 	}
-	else
-	{
-		fileId = nextId();
-		fileToId.insert({path, fileId});
-		idToFile.insert({fileId, path});
-	}
+	workerSync.wait(pin, [this](){ return numWorkers < maxWorkers; });  // all our operators are busy, please hold
+	threadWorkers[threadId]++;
+	numWorkers++;
+	std::thread addFileThread{&Indexer::addFileAsync, this, path, threadId};
+	addFileThread.detach();
+}
 
-	auto [insertIterator, didInsert] = forwardIndex.insert({fileId, getFileTokens(path, *tokenizer)});
-	auto& fileTokens = insertIterator->second;
+void Indexer::Indexer::addFileAsync(std::filesystem::path const& path, std::thread::id parent)
+{
+	std::unique_lock<std::mutex> indexLock{indexMutex};
+	auto fileId = getFileId(path);
+
+	indexLock.unlock();
+	auto fileTokens = getFileTokens(path, tokenizer->clone());
+	indexLock.lock();
+
 	for (auto const& token: fileTokens)
 	{
 		if (not invertedIndex.contains(token))
@@ -129,6 +144,12 @@ void Indexer::Indexer::addFile(std::filesystem::path const& path)
 		}
 		invertedIndex.at(token).insert(fileId);
 	}
+	forwardIndex.insert({fileId, std::move(fileTokens)});
+
+	std::unique_lock<std::mutex> workerPin{workerMutex};
+	threadWorkers[parent]--;
+	numWorkers--;
+	workerSync.notify_one();
 }
 
 void Indexer::Indexer::removeFile(std::filesystem::path const& path)
@@ -149,28 +170,45 @@ void Indexer::Indexer::removeFile(std::filesystem::path const& path)
 
 void Indexer::Indexer::reindexFile(std::filesystem::path const& path)
 {
+	if (not std::filesystem::exists(path))  // deleted while we weren't looking
+	{
+		return;
+	}
+
 	std::unique_lock pin{indexMutex};
 	assert(fileToId.contains(path));
-	auto fileId = fileToId.at(path);
+	auto fileId = getFileId(path);
 
-	std::unordered_set<std::string> newTokens = getFileTokens(path, *tokenizer);
+	auto newTokens = getFileTokens(path, tokenizer->clone());
+	assert(forwardIndex.contains(fileId));
+	auto& fileTokens = forwardIndex.at(fileId);
+
+	for (auto it = fileTokens.begin(); it != fileTokens.end(); )
+	{
+		auto& token = *it;
+
+		if (not newTokens.contains(token))
+		{
+			invertedIndex.at(token).erase(fileId);
+			it = fileTokens.erase(it);  // advances the iterator
+		}
+		else  // advance normally
+		{
+			++it;
+		}
+	}
+
 	for (auto const& token: newTokens)
 	{
+		if (fileTokens.contains(token))
+		{
+			continue;  // nothing to be chenged here
+		}
 		if (not invertedIndex.contains(token))
 		{
 			invertedIndex.insert({token, {}});
 		}
 		invertedIndex.at(token).insert(fileId);
-	}
-
-	assert(forwardIndex.contains(fileId));
-	auto& fileTokens = forwardIndex.at(fileId);
-	for (auto const& token: fileTokens)
-	{
-		if (not newTokens.contains(token))
-		{
-			invertedIndex.at(token).erase(fileId);
-		}
 	}
 	fileTokens = std::move(newTokens);
 }
