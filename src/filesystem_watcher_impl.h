@@ -1,6 +1,7 @@
 #ifndef FILESYSTEM_WATCHER_IMPL_H_
 #define FILESYSTEM_WATCHER_IMPL_H_
 
+#include <atomic>
 #include <chrono>
 #include <condition_variable>
 #include <mutex>
@@ -70,10 +71,7 @@ public:
 	~FilesystemWatcherImpl()
 	{
 		doStop = true;
-		if (watcherThread.joinable())
-		{
-			watcherThread.join();
-		}
+		watcherThread.join();
 	}
 
 	void addFile(std::filesystem::path const& path)
@@ -107,7 +105,7 @@ private:
 	ThreadSafeQueue<std::filesystem::path> addedDirectories;
 	ThreadSafeQueue<std::filesystem::path> removedPaths;
 
-	bool doStop{false};
+	std::atomic<bool> doStop{false};
 	
 	void watchFilesystem();
 	std::thread watcherThread{&FilesystemWatcherImpl::watchFilesystem, this};
