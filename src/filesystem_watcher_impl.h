@@ -24,11 +24,18 @@ class ThreadSafeQueue
 public:
 	~ThreadSafeQueue()
 	{
+		requestStop();
+	}
+
+	void requestStop()
+	{
+		doStop = true;
 		sync.notify_all();
 	}
 
 	std::vector<T> waitDrain()
 	{
+		if (doStop) return {};
 		std::unique_lock<std::mutex> pin{contentsMutex};
 		sync.wait(pin);
 		auto events = std::vector<T>{};
@@ -59,6 +66,7 @@ private:
 
 	mutable std::mutex contentsMutex;
 	std::condition_variable sync;
+	std::atomic<bool> doStop{false};
 
 	std::vector<T> queue;
 };
@@ -70,8 +78,14 @@ class FilesystemWatcherImpl
 public:
 	~FilesystemWatcherImpl()
 	{
-		doStop = true;
+		requestStop();
 		watcherThread.join();
+	}
+
+	void requestStop()
+	{
+		doStop = true;
+		eventQueue.requestStop();
 	}
 
 	void addFile(std::filesystem::path const& path)

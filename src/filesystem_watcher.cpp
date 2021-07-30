@@ -8,6 +8,11 @@ FilesystemWatcher::FilesystemWatcher(FilesystemWatcher&&) = default;
 FilesystemWatcher& FilesystemWatcher::operator=(FilesystemWatcher&&) = default;
 FilesystemWatcher::~FilesystemWatcher() = default;
 
+void FilesystemWatcher::requestStop()
+{
+	pImpl->requestStop();
+}
+
 void FilesystemWatcher::addFile(const std::filesystem::path &path)
 {
 	pImpl->addFile(path);

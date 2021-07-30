@@ -107,6 +107,7 @@ public:
 	~Indexer()
 	{
 		doStop = true;
+		watcher.requestStop();
 		filesystemWatcherThread.join();
 	}
 

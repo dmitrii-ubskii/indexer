@@ -21,6 +21,8 @@ public:
 
 	void removePath(std::filesystem::path const& path);
 
+	void requestStop();
+
 	enum class EventType
 	{
 		Created, Modified, Deleted
