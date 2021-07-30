@@ -2,6 +2,7 @@
 #define INDEXER_INDEXER_H_
 
 #include <atomic>
+#include <condition_variable>
 #include <filesystem>
 #include <fstream>
 #include <memory>
@@ -22,6 +23,8 @@ class Tokenizer
 public:
 	virtual void sendLine(std::string_view newLine) = 0;
 	virtual void sendEof() = 0;
+
+	virtual std::unique_ptr<Tokenizer> clone() const = 0;
 
 	[[nodiscard]] virtual std::string_view next() = 0;
 	virtual bool done() const = 0;
@@ -44,6 +47,8 @@ public:
 	}
 
 	virtual void sendEof() override {}
+
+	virtual std::unique_ptr<Tokenizer> clone() const override { return std::make_unique<WordTokenizer>(); }
 
 	[[nodiscard]] virtual std::string_view next() override
 	{
@@ -113,6 +118,7 @@ private:
 	void addDirectory(std::filesystem::path const&, Recursive);
 
 	void addFile(std::filesystem::path const&);
+	void addFileAsync(std::filesystem::path const&, std::thread::id parent);
 	void removeFile(std::filesystem::path const&);
 	void reindexFile(std::filesystem::path const&);
 
@@ -137,6 +143,13 @@ private:
 	}
 
 	std::unique_ptr<Tokenizer> tokenizer;
+
+	unsigned maxWorkers{std::thread::hardware_concurrency()};
+	unsigned numWorkers{0};
+	std::unordered_map<std::thread::id, unsigned> threadWorkers;
+
+	std::mutex workerMutex;
+	std::condition_variable workerSync;
 
 	// paths that were *explicitly* added by the user
 	PathSet addedPaths;
