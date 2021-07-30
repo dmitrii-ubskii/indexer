@@ -149,6 +149,11 @@ void Indexer::Indexer::removeFile(std::filesystem::path const& path)
 
 void Indexer::Indexer::reindexFile(std::filesystem::path const& path)
 {
+	if (not std::filesystem::exists(path))  // deleted while we weren't looking
+	{
+		return;
+	}
+
 	std::unique_lock pin{indexMutex};
 	assert(fileToId.contains(path));
 	auto fileId = fileToId.at(path);
